@@ -9,6 +9,7 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from . import config, db, ingestion, service
 from .schemas import AccuracyResponse, DeskResponse, IngestionResponse
@@ -108,3 +109,13 @@ async def post_refresh() -> dict[str, object]:
         "started_at": result.started_at.isoformat(),
         "finished_at": result.finished_at.isoformat(),
     }
+
+
+# A single-container host (Deplexo) runs this API and serves the built desk UI
+# from the same origin, so / is the bundle and /api is the API with nothing in
+# between. The API-only compose service has no bundle and keeps nginx in front.
+if config.FRONTEND_DIST.is_dir():
+    app.mount(
+        "/", StaticFiles(directory=str(config.FRONTEND_DIST), html=True), name="ui"
+    )
+    logger.info("Serving the desk UI from %s", config.FRONTEND_DIST)

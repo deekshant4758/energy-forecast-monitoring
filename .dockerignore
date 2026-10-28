@@ -1,0 +1,11 @@
+# Build context for the root Dockerfile (one app: API + desk UI).
+# backend/data/wind_desk.db must stay included: the image ships it seeded.
+.git
+.agents
+docs
+**/__pycache__
+**/*.pyc
+**/*.db-journal
+frontend/node_modules
+frontend/dist
+frontend/tsconfig.tsbuildinfo

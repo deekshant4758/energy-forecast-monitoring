@@ -25,6 +25,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.environ.get("WIND_DESK_DATA_DIR") or str(BASE_DIR / "data"))
 DB_PATH = DATA_DIR / "wind_desk.db"
 
+# The desk UI build, when this API also serves it (single-container hosts such
+# as Deplexo). Absent in the API-only compose service, where nginx serves the UI.
+FRONTEND_DIST = Path(
+    os.environ.get("WIND_DESK_FRONTEND_DIST") or str(BASE_DIR / "frontend_dist")
+)
+
 # Delivery window covered by the pilot. Day-ahead decisions for these delivery
 # days are taken at gate closure on the preceding day.
 WINDOW_START = date(2026, 1, 1)

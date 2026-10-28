@@ -1,0 +1,15 @@
+# Deplexo runs one app per file, so this app is a single container: the root
+# Dockerfile builds the desk UI and the API serves it from the same origin.
+# docker-compose.yml is the two-part setup for local work and is not used here.
+#
+# Env vars stay in the dashboard. The SQLite warehouse ships inside the image;
+# mount a volume at /data to keep a refresh across deploys.
+version: 1
+type: web
+build:
+  framework: dockerfile
+  dockerfile: Dockerfile
+run:
+  # The image listens on $PORT (/8000 by default), so this only needs to match
+  # whatever the dashboard routes to.
+  port: 8000

@@ -34,6 +34,8 @@ FastAPI + Python 3.13       →   SQLite warehouse seeded from Elexon BMRS
 | `backend/tests/` | 25 unit + contract tests |
 | `frontend/` | React SPA: Desk overview, Forecast accuracy, Data ingestion |
 | `docker-compose.yml` | Two-container stack (API + nginx-served SPA) |
+| `Dockerfile` | Single-container image: builds the SPA, the API serves it (one-app hosts) |
+| `deplexo.yaml` | Deplexo deployment config |
 | `docs/design-reference/` | Stitch design reference used for the visual language |
 
 The `backend/` and `frontend/` folders are deliberately independent: separate
@@ -192,68 +194,62 @@ The stack is Docker-native, so any container host works. **It has not been
 deployed from this environment** — that needs the client's own account, so no
 public URL is claimed here.
 
-### blitz.cloud
+### Deplexo
 
-blitz.cloud builds from GitHub and understands `docker-compose.yml`, so this
-repo deploys as one app with two parts, one address: the UI part at `/` and the
-API part at `/api`. The wizard guesses the API path (often `/backend`) and says
-it could not match `/api` to a part, so check that path before the first build.
+Deplexo configures **one app per `deplexo.yaml`**, so the two-service
+`docker-compose.yml` does not apply there. The root `Dockerfile` is the
+single-container version: the UI is built at image build time and the API
+serves it from the same origin. `/api/*` is the API and everything else is the
+bundle, so there is no proxy, no second part, no CORS and no API URL baked into
+the frontend.
 
-1. Create a free account at <https://dashboard.blitz.cloud> (no card, EU
-   hosting, 5 apps and 512 MB reserved memory).
-2. Push this repo to GitHub (`git remote add origin … && git push -u origin main`).
-   blitz.cloud builds private repos too once GitHub is connected.
-3. **Host something new → My own code →** pick the repo, name the app
-   (e.g. `wind-desk`), keep both proposed parts.
-4. **Settings → Parts:** the frontend part stays at `/`, and the backend part
-   must answer at `/api`, not the guessed `/backend`. blitz.cloud routes `/api`
-   straight to the API part, which is where the UI sends every request. Without
-   this, `/api/*` has no part behind it and the edge answers `421 Misdirected
-   Request`.
-5. Leave the four environment variables empty — the image defaults are correct
-   (`WIND_DESK_DATA_DIR=/data` is set in `backend/Dockerfile`, and the SQLite
-   warehouse ships there).
-6. The app comes up at `https://wind-desk.<your-address>.blitz.cloud` with
-   HTTPS; `/api/health` should report `"status": "ok"` with 1,488 actuals.
+1. **Deploy new → Git repository** and pick the repo. Deplexo reports
+   “No deplexo.yaml found” until the commit with this file is pushed.
+2. The root `deplexo.yaml` sets `build.framework: dockerfile`,
+   `build.dockerfile: Dockerfile` and `run.port: 8000`. Explicit YAML values
+   win over the dashboard, so the guessed framework and start command are
+   unused. Root directory stays `./`.
+3. Leave the environment variables alone. `PORT` may be any value: the image
+   starts uvicorn on the `PORT` it is given and falls back to 8000.
+4. `/api/health` should report `"status": "ok"` with 1,488 actuals, and `/`
+   should serve the desk.
 
-Notes for this stack:
+Notes:
 
-* **Apps.** The two running parts count as 2 of the 5 free apps and 256 MB of
-  the 512 MB pool, so the free plan is enough.
-* **Sleeping.** Free apps scale to zero after 30 minutes without a visitor and
-  wake on the next browser visit (about 10 seconds). Pro (7 EUR/month) keeps
-  them awake. The nginx proxy means the UI part must be awake for `/api` calls
-  to work from the dashboard.
-* **Data.** `backend/data/wind_desk.db` ships in the image, so the desk is
-  populated on first boot. The `/data` folder is declared with `VOLUME` so a
-  refresh via `POST /api/ingest/refresh` survives restarts. Kept folders are
-  not backed up on the free plan.
-* **Upstream.** nginx works out where `/api` goes before it starts: it probes
-  `backend:8000` then `backend:8080`, pins the address it finds, and the first
-  line of the UI part's log says which one it chose. An `BACKEND_UPSTREAM`
-  starting with `https://` is ignored on purpose — that is the app's own public
-  address, and proxying to it loops `/api` back through the edge, which answers
-  403. If the probe finds nothing, set `BACKEND_UPSTREAM` to the API part's
-  internal address on the frontend part's Environment tab and restart.
-* **Port.** The API listens on `PORT` when a host sets it (blitz.cloud sends
-  8080) and on 8000 otherwise, so the edge and the container agree either way.
-* **Unprivileged nginx.** blitz.cloud starts a part as a regular user, so the
-  frontend image keeps nginx's pid file, temp folders and logs under `/tmp` and
-  listens on 8080; the stock image would exit with code 1 trying to write
-  `/var/cache/nginx`.
-* **Builds.** ~3–5 minutes on a cold cache; the free plan has 300 build minutes
-  a month and builds one project at a time.
+* **Data.** `backend/data/wind_desk.db` is copied into the image at `/data`, so
+  the desk is populated on first boot. `/data` is declared with `VOLUME`; mount
+  a persistent volume there to keep a refresh across deploys, otherwise a new
+  deploy starts again from the seeded January 2026 warehouse.
+* **Refresh.** `POST /api/ingest/refresh` re-pulls FUELHH and WINDFOR from
+  Elexon; it needs outbound HTTPS from the container and takes up to a minute.
+* **Health check.** The image checks `/api/health` on `$PORT` every 30s, so a
+  failed deploy shows up in the dashboard rather than on first page load.
+* **Builds.** ~3–5 minutes on a cold cache; `npm ci` is cached in its own layer,
+  so later deploys only rebuild what changed.
+
+### Splitting the two parts
+
+Hosting the API on Deplexo and the UI on Vercel works, but it is strictly more
+moving parts than the single container above: two dashboards, two deploy
+pipelines, a build-time API URL, and CORS.
+
+* **API on Deplexo** — same `deplexo.yaml`, except the UI mount is skipped when
+  no bundle is present. Add the Vercel origin(s) to `CORS_ORIGINS` (comma
+  separated) or every browser request is refused.
+* **UI on Vercel** — root directory `frontend`, build `npm run build`, output
+  `dist`, and `VITE_API_BASE_URL=https://<api-app>.deplexo.com` at build time.
+  That value is baked in at build time, so it must be updated if the API URL
+  changes, and Vercel preview URLs each need their own `CORS_ORIGINS` entry.
+* **No persistent disk on Vercel** — the SQLite warehouse and the FastAPI app
+  cannot run there, which is why only the static UI moves.
+
+Keep the single app unless there is a reason to split it.
 
 ### Other hosts
 
-* **Render / Railway / Fly.io** — point the service at this repo and use
-  `docker-compose.yml` or deploy `backend/` and `frontend/` as two services; set
-  the frontend's upstream in `frontend/nginx.conf` to the backend service name.
-* **Heroku** — `heroku container:push web` per service, or a `heroku.yml`
-  manifest with two services.
-* **Vercel** — the SPA deploys as a static build (`npm run build`, output
-  `dist/`) with `VITE_API_BASE_URL` set to the deployed API origin; the FastAPI
-  service needs a container host because of the SQLite warehouse.
+* **Render / Railway / Fly.io** — point the service at the root `Dockerfile`
+  (one app), or use `docker-compose.yml` and keep the two parts separate.
+* **Heroku** — `heroku container:push web` with the root `Dockerfile`.
 
 None of these are claimed as done. They are the documented path.
 
