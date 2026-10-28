@@ -229,10 +229,12 @@ Notes for this stack:
   refresh via `POST /api/ingest/refresh` survives restarts. Kept folders are
   not backed up on the free plan.
 * **Upstream.** nginx works out where `/api` goes before it starts: it probes
-  `backend:8000` then `backend:8080` and uses whichever answers, and the first
-  line of the UI part's log says which address it picked. If blitz.cloud names
-  the API part something else, set `BACKEND_UPSTREAM` to that part's address on
-  the frontend part's Environment tab and restart — no rebuild needed.
+  `backend:8000` then `backend:8080`, pins the address it finds, and the first
+  line of the UI part's log says which one it chose. An `BACKEND_UPSTREAM`
+  starting with `https://` is ignored on purpose — that is the app's own public
+  address, and proxying to it loops `/api` back through the edge, which answers
+  403. If the probe finds nothing, set `BACKEND_UPSTREAM` to the API part's
+  internal address on the frontend part's Environment tab and restart.
 * **Port.** The API listens on `PORT` when a host sets it (blitz.cloud sends
   8080) and on 8000 otherwise, so the edge and the container agree either way.
 * **Unprivileged nginx.** blitz.cloud starts a part as a regular user, so the

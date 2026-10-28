@@ -13,35 +13,66 @@ log() {
     echo "wind desk ui: $*"
 }
 
-# Hosts may pass a declared variable through as an empty string, which would
-# leave nginx with a `set ... ;` it cannot parse.
-upstream="${BACKEND_UPSTREAM:-}"
+# Turn http://name:port into http://<ip>:port when the name resolves.
+# nginx's own resolver does not apply the search domains the container was
+# given, so a short name can work for one and fail for the other; an address
+# has no such trouble.
+to_ip() {
+    url="$1"
+    scheme=${url%%://*}
+    rest=${url#*://}
+    hostport=${rest%%/*}
+    host=${hostport%%:*}
+    port=${hostport##*:}
+    [ "$port" = "$hostport" ] && port=80
+    ip=$(getent hosts "$host" 2>/dev/null | awk '$1 !~ /:/ { print $1; exit }') || true
+    if [ -n "${ip:-}" ]; then
+        printf '%s://%s:%s' "$scheme" "$ip" "$port"
+    else
+        printf '%s' "$url"
+    fi
+}
 
-if [ -z "$upstream" ]; then
-    # The API part is named `backend` in compose, but the host decides which
-    # port it runs on (PORT, or the image's EXPOSE). Use whichever answers.
-    for port in 8000 8080; do
-        if wget -q -O /dev/null -T 2 "http://backend:$port/api/health" 2>/dev/null; then
-            upstream="http://backend:$port"
-            break
-        fi
-    done
-    upstream="${upstream:-http://backend:8000}"
+# Ask the sibling API part first. A host can fill BACKEND_UPSTREAM with the
+# app's own public URL, and proxying to that sends /api out to the edge and
+# straight back into this container, which the edge answers with 403.
+probe=""
+for port in 8000 8080; do
+    if wget -q -O /dev/null -T 2 "http://backend:$port/api/health" 2>/dev/null; then
+        probe=$(to_ip "http://backend:$port")
+        break
+    fi
+done
+
+host_upstream="${BACKEND_UPSTREAM:-}"
+upstream="$host_upstream"
+
+# A sibling part is spoken to over plain http inside the app's network; https
+# here means the public edge, which would only loop back to this container.
+case "$upstream" in
+    https://*) upstream="" ;;
+esac
+
+# What the probe found beats anything the host set.
+if [ -n "$probe" ]; then
+    upstream="$probe"
 fi
 
-# Drop trailing slashes: proxy_pass adds the request URI itself.
+# A trailing slash would double up with the request URI.
 upstream=$(printf '%s' "$upstream" | sed 's|/*$||')
+upstream="${upstream:-http://backend:8000}"
 export BACKEND_UPSTREAM="$upstream"
 
 # Use the resolvers this container was given, not a hardcoded Docker one: the
-# host may put its parts on a different network. A variable proxy_pass needs
-# one, since nginx would otherwise resolve the API name once at startup and
-# refuse to start if the API part is still booting.
+# host may put its parts on a different network.
 resolvers=$(awk '/^nameserver/ { printf "%s ", $2 }' /etc/resolv.conf 2>/dev/null || true)
 [ -n "$resolvers" ] || resolvers="127.0.0.11 "
 export NGINX_RESOLVERS="$resolvers"
 
-log "proxying /api to $upstream (resolvers: $resolvers)"
+log "proxying /api to $upstream (probe: ${probe:-none}, host set: ${host_upstream:-unset}, resolvers: $resolvers)"
+# Names only, so a host that hands out the API address under a variable of its
+# own is visible in the log without printing anything secret.
+log "address-like settings: $(env | cut -d= -f1 | grep -Ei 'backend|api|host|port|url|service' | sort | tr '\n' ' ')"
 
 mkdir -p /tmp/nginx/conf \
     /tmp/client_temp /tmp/proxy_temp /tmp/fastcgi_temp \
