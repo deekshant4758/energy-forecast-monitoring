@@ -15,6 +15,7 @@ import { mw, signedMw, signedPct } from "../lib/format";
 
 interface ChartPoint {
   index: number;
+  start: string;
   label: string;
   actual: number | null;
   forecast: number | null;
@@ -97,6 +98,7 @@ export function ActualForecastChart({ series }: { series: SeriesPoint[] }) {
     () =>
       series.map((point, index) => ({
         index,
+        start: point.start,
         label: point.label,
         actual: point.actual,
         forecast: point.forecast,
@@ -159,11 +161,8 @@ export function ActualForecastChart({ series }: { series: SeriesPoint[] }) {
           ))}
 
           <XAxis
-            dataKey="label"
-            tickFormatter={(value: string) => {
-              const point = data.find((item) => item.label === value);
-              return point ? tickLabel(point.label, multiDay) : "";
-            }}
+            dataKey="start"
+            tickFormatter={(value: string) => tickLabel(value, multiDay)}
             minTickGap={42}
             tickCount={tickCount}
             tickLine={false}

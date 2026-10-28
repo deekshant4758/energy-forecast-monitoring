@@ -1,5 +1,5 @@
 import { CalendarRange, Info } from "lucide-react";
-import { Pill, Segmented } from "./primitives";
+import { Segmented } from "./primitives";
 import type { HorizonStat } from "../lib/types";
 import { pct } from "../lib/format";
 
@@ -56,15 +56,6 @@ export function WindowControls({
                 }`}
               >
                 {preset.label}
-                {preset.key === "w1" && (
-                  <span
-                    className={
-                      active ? "ml-1 text-primary" : "ml-1 text-on-surface-faint"
-                    }
-                  >
-                    default
-                  </span>
-                )}
               </button>
             );
           })}
@@ -116,54 +107,54 @@ export function HorizonControls({
   const selected = horizons.find((entry) => entry.horizon === horizon);
   // Below the day-ahead lead time the gate-closure rule binds first, so a
   // shorter horizon cannot change which publication is used.
+  const realisedLead = selected?.mean_lead_hours ?? null;
   const nonBinding =
-    selected?.mean_lead_hours !== null &&
-    selected?.mean_lead_hours !== undefined &&
-    selected.mean_lead_hours > horizon + 0.5;
+    realisedLead !== null && realisedLead > horizon + 0.5;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-outline-variant bg-surface-container/40 px-3 py-2">
-      <div className="flex items-center gap-2">
-        <span className="label">Target forecast horizon</span>
+    <div className="flex flex-col gap-1 border-t border-outline-variant bg-surface-container/40 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="label">Minimum forecast lead</span>
         <Segmented
-          ariaLabel="Target forecast horizon in hours"
+          ariaLabel="Minimum forecast lead time in hours"
           value={horizon}
           onChange={onChange}
           options={options.map((value) => ({
             value,
             label: `${value}h`,
-            title: `Require forecasts published at least ${value} hours before delivery`,
+            title: `Use only forecasts published at least ${value} hours before delivery`,
           }))}
         />
+        {nonBinding && (
+          <span className="text-[10.5px] text-on-surface-faint">
+            No effect at {horizon}h — gate closure is stricter
+          </span>
+        )}
       </div>
 
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        <Pill tone={nonBinding ? "success" : "warning"} dot>
-          {nonBinding ? "DA validated" : "Binding constraint"}
-        </Pill>
-        <p className="flex items-center gap-1.5 text-[10.5px] leading-snug text-on-surface-variant">
-          <Info size={11} className="shrink-0 text-on-surface-faint" />
-          <span>
-            Eligible if published before day-ahead gate closure and at least{" "}
-            {horizon}h before the settlement period.
-            {selected && (
-              <>
-                {" "}
-                Realised mean lead{" "}
-                <strong className="tnum font-semibold text-on-surface">
-                  {selected.mean_lead_hours?.toFixed(1) ?? "—"}h
-                </strong>{" "}
-                · coverage{" "}
-                <strong className="tnum font-semibold text-on-surface">
-                  {pct(selected.coverage_pct)}
-                </strong>
-                {nonBinding &&
-                  " · gate closure binds first, so this matches shorter horizons."}
-              </>
-            )}
-          </span>
-        </p>
-      </div>
+      <p className="flex items-start gap-1.5 text-[10.5px] leading-snug text-on-surface-variant">
+        <Info size={11} className="mt-[1px] shrink-0 text-on-surface-faint" />
+        <span>
+          A forecast is only used if it was published before day-ahead gate
+          closure (12:00 London on the day before delivery) and at least{" "}
+          {horizon}h before the settlement period.
+          {selected && (
+            <>
+              {" "}
+              Realised mean lead{" "}
+              <strong className="tnum font-semibold text-on-surface">
+                {selected.mean_lead_hours?.toFixed(1) ?? "—"}h
+              </strong>{" "}
+              · coverage{" "}
+              <strong className="tnum font-semibold text-on-surface">
+                {pct(selected.coverage_pct)}
+              </strong>
+              .{nonBinding &&
+                ` Raising this to 24h or more is what changes the selection.`}
+            </>
+          )}
+        </span>
+      </p>
     </div>
   );
 }

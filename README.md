@@ -60,6 +60,11 @@ volume keeps refreshes across restarts.
 
 ### Local development
 
+Two processes: the API on **:8000**, the Vite dev server on **:5173**. Open
+<http://localhost:5173> for the UI; `http://127.0.0.1:5173` works too. The dev
+server proxies `/api` to `http://127.0.0.1:8000`, so there is no CORS setup and
+nothing to configure.
+
 Terminal 1 — API:
 
 ```bash
@@ -67,7 +72,7 @@ cd backend
 python -m venv .venv && . .venv/Scripts/activate     # or: source .venv/bin/activate
 pip install -r requirements.txt
 python scripts/ingest.py --summary                   # optional: re-pull from Elexon
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000            # http://127.0.0.1:8000/docs
 ```
 
 Terminal 2 — UI:
@@ -75,7 +80,20 @@ Terminal 2 — UI:
 ```bash
 cd frontend
 npm install
-npm run dev            # http://localhost:5173, proxies /api to :8000
+npm run dev            # http://localhost:5173
+```
+
+If port 5173 is already taken, Vite fails loudly (`strictPort`) rather than
+silently moving to 5174. Stop the other process, or override the port with
+`npm run dev -- --port 5174`. If the UI loads but every request fails, check
+that the API is on :8000 and that `VITE_DEV_API_TARGET` is not pointing
+somewhere else.
+
+Quick check once both are running:
+
+```bash
+curl http://127.0.0.1:8000/api/health   # {"status":"ok", ...}
+curl http://localhost:5173/api/health   # same response, through the Vite proxy
 ```
 
 ### Tests

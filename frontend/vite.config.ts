@@ -9,6 +9,11 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
+    strictPort: true,
+    // Listen on IPv4 as well as IPv6. Without this Vite can bind to ::1 only,
+    // and http://127.0.0.1:5173 (or a browser that resolves "localhost" to
+    // IPv4 first) then refuses the connection.
+    host: true,
     proxy: {
       "/api": {
         target: process.env.VITE_DEV_API_TARGET ?? "http://127.0.0.1:8000",

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ArrowUpRight, Download, Radio } from "lucide-react";
+import { ArrowUpRight, Download } from "lucide-react";
 import { ActualForecastChart, ChartLegend } from "../components/ActualForecastChart";
 import { CoverPanel } from "../components/CoverPanel";
 import { HorizonControls, WindowControls, type WindowRange } from "../components/DeskControls";
@@ -129,9 +129,6 @@ export function DeskOverview({
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <Pill tone="success" dot>
-            Live feed
-          </Pill>
           <button
             type="button"
             onClick={onOpenAccuracy}
@@ -159,11 +156,6 @@ export function DeskOverview({
               Delivery horizon {desk.window.from} → {desk.window.to} · Europe/London
               · SP01–SP48 · Rule: {desk.gate_closure_rule}
             </>
-          }
-          actions={
-            <Pill tone="primary" dot>
-              Elexon FUELHH / WINDFOR
-            </Pill>
           }
           bodyClassName="pt-1"
         >
@@ -228,11 +220,6 @@ export function DeskOverview({
                 ? `${kpis.missing_forecast + kpis.missing_actual} periods missing feed`
                 : "No missing periods"
             }
-            badge={
-              <Pill tone={kpis.coverage_pct > 99 ? "success" : "warning"}>
-                {kpis.coverage_pct > 99 ? "Complete" : "Partial"}
-              </Pill>
-            }
           />
         </div>
 
@@ -244,11 +231,6 @@ export function DeskOverview({
           className="mt-3"
           title="Half-hourly settlement telemetry stream"
           subtitle="Direct Elexon BMRS WINDFOR ingestion log with lead-time constraint validation."
-          actions={
-            <Pill tone="neutral" dot>
-              <Radio size={10} /> Selected horizon {desk.horizon}h
-            </Pill>
-          }
           bodyClassName="p-0"
         >
           <TelemetryTable

@@ -159,7 +159,6 @@ export function Accuracy({
           className="mt-3"
           title="Horizon ladder"
           subtitle="What an extra hour of lead time costs, and where coverage stops being available."
-          actions={<Pill tone="primary">Same window</Pill>}
           bodyClassName="p-0"
         >
           <div className="overflow-x-auto">

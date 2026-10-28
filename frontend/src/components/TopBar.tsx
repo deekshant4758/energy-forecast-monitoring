@@ -9,13 +9,7 @@ import {
 } from "../lib/format";
 import type { MetaResponse } from "../lib/types";
 
-export function TopBar({
-  meta,
-  horizon,
-}: {
-  meta: MetaResponse | null;
-  horizon: number;
-}) {
+export function TopBar({ meta }: { meta: MetaResponse | null }) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -46,9 +40,6 @@ export function TopBar({
         <Pill tone={connected ? "success" : "danger"} dot>
           BMRS feed {connected ? "operational" : "empty"}
         </Pill>
-        <Pill tone="primary">Horizon DA · SP01–SP48</Pill>
-        <Pill>Source WINDFOR</Pill>
-        <Pill>Lead ≥ {horizon}h</Pill>
       </div>
 
       <div className="flex items-center gap-4">

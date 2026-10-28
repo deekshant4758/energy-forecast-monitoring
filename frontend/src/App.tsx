@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TopBar } from "./components/TopBar";
 import { Sidebar, type ViewKey } from "./components/Sidebar";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ErrorState, Spinner } from "./components/primitives";
 import { Accuracy } from "./views/Accuracy";
 import { DeskOverview } from "./views/DeskOverview";
@@ -118,7 +119,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      <TopBar meta={meta} horizon={horizon} />
+      <TopBar meta={meta} />
 
       <div className="flex min-h-0 flex-1">
         <Sidebar view={view} onSelect={setView} meta={meta} ingestion={ingestion} />
@@ -134,50 +135,54 @@ export default function App() {
             </div>
           )}
 
-          {view === "desk" &&
-            (desk ? (
-              <DeskOverview
-                desk={desk}
-                meta={meta}
-                range={range}
-                horizon={horizon}
-                resolution={resolution}
-                onRange={setRange}
-                onHorizon={setHorizon}
-                onResolution={setResolution}
-                onOpenAccuracy={() => setView("accuracy")}
-              />
-            ) : (
-              !error && <Spinner label="Loading the desk" />
-            ))}
+          <ErrorBoundary
+            resetKey={`${view}-${range.from}-${range.to}-${horizon}-${resolution}`}
+          >
+            {view === "desk" &&
+              (desk ? (
+                <DeskOverview
+                  desk={desk}
+                  meta={meta}
+                  range={range}
+                  horizon={horizon}
+                  resolution={resolution}
+                  onRange={setRange}
+                  onHorizon={setHorizon}
+                  onResolution={setResolution}
+                  onOpenAccuracy={() => setView("accuracy")}
+                />
+              ) : (
+                !error && <Spinner label="Loading the desk" />
+              ))}
 
-          {view === "accuracy" &&
-            (accuracy ? (
-              <Accuracy
-                accuracy={accuracy}
-                meta={meta}
-                range={range}
-                horizon={horizon}
-                onRange={setRange}
-                onHorizon={setHorizon}
-              />
-            ) : (
-              !error && <Spinner label="Loading accuracy analytics" />
-            ))}
+            {view === "accuracy" &&
+              (accuracy ? (
+                <Accuracy
+                  accuracy={accuracy}
+                  meta={meta}
+                  range={range}
+                  horizon={horizon}
+                  onRange={setRange}
+                  onHorizon={setHorizon}
+                />
+              ) : (
+                !error && <Spinner label="Loading accuracy analytics" />
+              ))}
 
-          {view === "ingestion" &&
-            (ingestion ? (
-              <Ingestion
-                ingestion={ingestion}
-                meta={meta}
-                onRefreshed={() => {
-                  void loadReference();
-                  void loadDesk();
-                }}
-              />
-            ) : (
-              !error && <Spinner label="Loading ingestion status" />
-            ))}
+            {view === "ingestion" &&
+              (ingestion ? (
+                <Ingestion
+                  ingestion={ingestion}
+                  meta={meta}
+                  onRefreshed={() => {
+                    void loadReference();
+                    void loadDesk();
+                  }}
+                />
+              ) : (
+                !error && <Spinner label="Loading ingestion status" />
+              ))}
+          </ErrorBoundary>
         </main>
       </div>
     </div>

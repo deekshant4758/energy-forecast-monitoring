@@ -94,7 +94,7 @@ export function Sidebar({
         <div className="mt-2 flex items-center gap-1.5 text-[10px] text-on-surface-faint">
           <GaugeCircle size={12} />
           <span>
-            Decision window {meta?.window.from.slice(0, 7) ?? "2026-01"} · DA
+            Delivery month {meta?.window.from.slice(0, 7) ?? "2026-01"}
           </span>
         </div>
       </div>

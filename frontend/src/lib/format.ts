@@ -92,30 +92,74 @@ export function londonZoneAbbreviation(now: Date): string {
 /**
  * Next day-ahead gate closure: 12:00 Europe/London, today if it is still
  * ahead, otherwise tomorrow.
+ *
+ * The wall clock is converted through the London offset rather than by adding
+ * 24 hours to `now`, because adding a day keeps the same London clock time and
+ * would never move past a 12:00 that has already gone.
  */
-export function nextGateClosure(now: Date): { at: Date; label: string } {
-  const formatter = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/London",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+const LONDON_PARTS = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/London",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
 
-  for (let offset = 0; offset < 2; offset += 1) {
-    const candidate = new Date(now.getTime() + offset * 24 * 60 * 60 * 1000);
-    const parts = formatter.formatToParts(candidate);
-    const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
-    const minute = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
-    // Work out the instant whose London wall clock reads 12:00.
-    const deltaMinutes = 12 * 60 - (hour * 60 + minute);
-    if (deltaMinutes > 0) {
-      return {
-        at: new Date(now.getTime() + deltaMinutes * 60 * 1000),
-        label: `12:00 ${londonZoneAbbreviation(now)}`,
-      };
-    }
+function londonParts(date: Date) {
+  const parts = LONDON_PARTS.formatToParts(date);
+  const value = (type: string) =>
+    Number(parts.find((part) => part.type === type)?.value ?? "0");
+  return {
+    year: value("year"),
+    month: value("month"),
+    day: value("day"),
+    hour: value("hour") % 24,
+    minute: value("minute"),
+    second: value("second"),
+  };
+}
+
+/** Milliseconds London wall clock is ahead of UTC at a given instant. */
+function londonOffsetMs(date: Date): number {
+  const parts = londonParts(date);
+  const asUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+  );
+  const truncated = Math.floor(date.getTime() / 1000) * 1000;
+  return asUtc - truncated;
+}
+
+/** The instant whose London wall clock reads 12:00 on the given calendar day. */
+function gateClosureFor(year: number, month: number, day: number): Date {
+  const noonAsUtc = Date.UTC(year, month - 1, day, 12, 0, 0);
+  // Offset at the candidate instant, then correct once for a DST boundary.
+  const firstGuess = new Date(noonAsUtc - londonOffsetMs(new Date(noonAsUtc)));
+  return new Date(noonAsUtc - londonOffsetMs(firstGuess));
+}
+
+export function nextGateClosure(now: Date): { at: Date; label: string } {
+  const today = londonParts(now);
+  let at = gateClosureFor(today.year, today.month, today.day);
+  if (at.getTime() <= now.getTime()) {
+    // Advance one calendar day in UTC arithmetic, then re-read the calendar.
+    const tomorrow = new Date(
+      Date.UTC(today.year, today.month - 1, today.day + 1),
+    );
+    at = gateClosureFor(
+      tomorrow.getUTCFullYear(),
+      tomorrow.getUTCMonth() + 1,
+      tomorrow.getUTCDate(),
+    );
   }
-  return { at: new Date(now.getTime() + 12 * 60 * 60 * 1000), label: "12:00" };
+  return { at, label: `12:00 ${londonZoneAbbreviation(at)}` };
 }
 
 export function countdown(target: Date, now: Date): string {
@@ -125,5 +169,5 @@ export function countdown(target: Date, now: Date): string {
   );
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  return `-${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  return `${hours}h ${String(minutes).padStart(2, "0")}m`;
 }
