@@ -191,17 +191,25 @@ public URL is claimed here.
 ### blitz.cloud
 
 blitz.cloud builds from GitHub and understands `docker-compose.yml`, so this
-repo deploys as one app with two parts. The wizard proposes `frontend` at `/`
-and `backend` at `/api`; the two parts resolve each other by compose service
-name, which is what the default `BACKEND_UPSTREAM` uses.
+repo deploys as one app with two parts, one address: the UI part at `/` and the
+API part at `/api`. The wizard guesses the API path (often `/backend`) and says
+it could not match `/api` to a part, so check that path before the first build.
 
 1. Create a free account at <https://dashboard.blitz.cloud> (no card, EU
    hosting, 5 apps and 512 MB reserved memory).
 2. Push this repo to GitHub (`git remote add origin … && git push -u origin main`).
    blitz.cloud builds private repos too once GitHub is connected.
 3. **Host something new → My own code →** pick the repo, name the app
-   (e.g. `wind-desk`), keep the proposed parts, and let it build.
-4. The app comes up at `https://wind-desk.<your-address>.blitz.cloud` with
+   (e.g. `wind-desk`), keep both proposed parts.
+4. **Settings → Parts:** the frontend part stays at `/`, and the backend part
+   must answer at `/api`, not the guessed `/backend`. blitz.cloud routes `/api`
+   straight to the API part, which is where the UI sends every request. Without
+   this, `/api/*` has no part behind it and the edge answers `421 Misdirected
+   Request`.
+5. Leave the four environment variables empty — the image defaults are correct
+   (`WIND_DESK_DATA_DIR=/data` is set in `backend/Dockerfile`, and the SQLite
+   warehouse ships there).
+6. The app comes up at `https://wind-desk.<your-address>.blitz.cloud` with
    HTTPS; `/api/health` should report `"status": "ok"` with 1,488 actuals.
 
 Notes for this stack:
@@ -216,9 +224,15 @@ Notes for this stack:
   populated on first boot. The `/data` folder is declared with `VOLUME` so a
   refresh via `POST /api/ingest/refresh` survives restarts. Kept folders are
   not backed up on the free plan.
-* **Upstream.** If blitz.cloud names the API part something other than
-  `backend`, set `BACKEND_UPSTREAM` to that part's address on the frontend part's
-  Environment tab and restart — no rebuild needed.
+* **Upstream.** nginx proxies `/api` to `backend:8000` for local Docker Compose
+  use. If blitz.cloud names the API part something else, set
+  `BACKEND_UPSTREAM` to that part's address on the frontend part's Environment
+  tab and restart — no rebuild needed. The name is resolved per request, so the
+  UI part starts even if the API part is still booting.
+* **Unprivileged nginx.** blitz.cloud starts a part as a regular user, so the
+  frontend image keeps nginx's pid file, temp folders and logs under `/tmp` and
+  listens on 8080; the stock image would exit with code 1 trying to write
+  `/var/cache/nginx`.
 * **Builds.** ~3–5 minutes on a cold cache; the free plan has 300 build minutes
   a month and builds one project at a time.
 

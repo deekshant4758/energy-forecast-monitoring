@@ -18,7 +18,11 @@ UTC = timezone.utc
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Data lives next to the backend code so a container can ship a pre-seeded DB.
-DATA_DIR = Path(os.environ.get("WIND_DESK_DATA_DIR", str(BASE_DIR / "data")))
+# Empty values are treated as unset: some hosts pass a declared variable through
+# as an empty string, and Path("") would put the warehouse in the working dir.
+# The image symlinks /app/data to the seeded warehouse in /data, so both the
+# default and the image's WIND_DESK_DATA_DIR=/data point at the same file.
+DATA_DIR = Path(os.environ.get("WIND_DESK_DATA_DIR") or str(BASE_DIR / "data"))
 DB_PATH = DATA_DIR / "wind_desk.db"
 
 # Delivery window covered by the pilot. Day-ahead decisions for these delivery
@@ -35,8 +39,8 @@ GATE_CLOSURE_HOUR = 12
 GATE_CLOSURE_MINUTE = 0
 
 # Elexon BMRS "insights" API. No key is required for these public datasets.
-ELEXON_BASE_URL = os.environ.get(
-    "ELEXON_BASE_URL", "https://data.elexon.co.uk/bmrs/api/v1"
+ELEXON_BASE_URL = (
+    os.environ.get("ELEXON_BASE_URL") or "https://data.elexon.co.uk/bmrs/api/v1"
 )
 
 # FUELHH rejects requests spanning more than 7 settlement days.
@@ -46,7 +50,7 @@ ELEXON_MAX_DAYS_PER_REQUEST = 7
 # first delivery day are published up to ~72h ahead.
 FORECAST_HISTORY_PAD_DAYS = 5
 
-HTTP_TIMEOUT_SECONDS = float(os.environ.get("ELEXON_TIMEOUT_SECONDS", "45"))
+HTTP_TIMEOUT_SECONDS = float(os.environ.get("ELEXON_TIMEOUT_SECONDS") or "45")
 HTTP_RETRIES = 4
 
 CORS_ORIGINS = [

@@ -13,6 +13,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # The image ships with the January 2026 warehouse already seeded, so the desk
 # is usable the moment the container starts and reviews do not depend on the
 # Elexon API being reachable. Mount a volume here to persist refreshes.
+# /app/data is where the code looks by default; point it at the seeded
+# warehouse so an empty WIND_DESK_DATA_DIR still finds the data.
+RUN ln -s /data /app/data
+
 COPY data /data
 COPY app ./app
 COPY scripts ./scripts
