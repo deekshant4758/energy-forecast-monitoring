@@ -174,11 +174,15 @@ Backend (`backend/app/config.py`), all optional:
 | `CORS_ORIGINS` | localhost dev origins | Only needed when bypassing the nginx proxy |
 | `ELEXON_BASE_URL` | public BMRS v1 | Point at a mock in tests |
 | `ELEXON_TIMEOUT_SECONDS` | `45` | Upstream HTTP timeout |
+| `PORT` | `8000` | Port uvicorn listens on; container hosts set it for you |
 
 Frontend: `VITE_API_BASE_URL` (empty by default so requests stay same-origin)
-and `BACKEND_UPSTREAM` (default `http://backend:8000`), the host nginx proxies
-`/api` to. It is rendered into the nginx config at container start, so it can be
-changed with an environment variable instead of a rebuild.
+and `BACKEND_UPSTREAM`, the address nginx proxies `/api` to. It is worked out at
+container start and rendered into the nginx config there, so it can be changed
+with an environment variable instead of a rebuild: set it to pin one address,
+or leave it unset and the entrypoint probes `http://backend:8000` then
+`http://backend:8080` and uses whichever answers `/api/health`, falling back to
+`http://backend:8000`. The first line of the container log says which it chose.
 
 ---
 
@@ -224,11 +228,13 @@ Notes for this stack:
   populated on first boot. The `/data` folder is declared with `VOLUME` so a
   refresh via `POST /api/ingest/refresh` survives restarts. Kept folders are
   not backed up on the free plan.
-* **Upstream.** nginx proxies `/api` to `backend:8000` for local Docker Compose
-  use. If blitz.cloud names the API part something else, set
-  `BACKEND_UPSTREAM` to that part's address on the frontend part's Environment
-  tab and restart — no rebuild needed. The name is resolved per request, so the
-  UI part starts even if the API part is still booting.
+* **Upstream.** nginx works out where `/api` goes before it starts: it probes
+  `backend:8000` then `backend:8080` and uses whichever answers, and the first
+  line of the UI part's log says which address it picked. If blitz.cloud names
+  the API part something else, set `BACKEND_UPSTREAM` to that part's address on
+  the frontend part's Environment tab and restart — no rebuild needed.
+* **Port.** The API listens on `PORT` when a host sets it (blitz.cloud sends
+  8080) and on 8000 otherwise, so the edge and the container agree either way.
 * **Unprivileged nginx.** blitz.cloud starts a part as a regular user, so the
   frontend image keeps nginx's pid file, temp folders and logs under `/tmp` and
   listens on 8080; the stock image would exit with code 1 trying to write

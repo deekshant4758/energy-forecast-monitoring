@@ -13,8 +13,8 @@ FROM nginx:1.27-alpine
 # The UI is served by nginx on 8080, which is the port container hosts route
 # to. nginx runs as whatever user the host gives it, so all of its writable
 # state is kept under /tmp: see nginx.conf and docker-entrypoint.sh. The server
-# block is rendered at start so the API address can change without a rebuild.
-ENV BACKEND_UPSTREAM=http://backend:8000
+# block is rendered at start, which is where the API address and port are
+# worked out; set BACKEND_UPSTREAM to skip that and pin one address.
 
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY default.conf.template /etc/nginx/templates/default.conf.template

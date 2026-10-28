@@ -26,9 +26,13 @@ COPY tests ./tests
 # than compose volumes) keep the SQLite file across restarts and deploys.
 VOLUME ["/data"]
 
+# Container hosts pick the port and pass it in PORT (blitz.cloud sends 8080);
+# compose leaves it unset, so the API keeps listening on its documented 8000.
+ENV PORT=8000
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/health')"
+    CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/api/health' % (os.environ.get('PORT') or '8000'))"
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
