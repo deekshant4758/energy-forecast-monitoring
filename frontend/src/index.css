@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens lifted from the Stitch reference screen
+ * (docs/design-reference/). Slate institutional terminal: white surfaces on a
+ * near-white canvas, a single blue accent for the primary series, green for
+ * acceptable states, amber and red for risk.
+ */
+@theme {
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-low: #ffffff;
+  --color-surface-container: #f1f5f9;
+  --color-surface-container-high: #e2e8f0;
+  --color-surface-container-highest: #cbd5e1;
+  --color-outline: #94a3b8;
+  --color-outline-variant: #e2e8f0;
+  --color-on-surface: #0f172a;
+  --color-on-surface-variant: #64748b;
+  --color-on-surface-faint: #94a3b8;
+
+  --color-primary: #1d4ed8;
+  --color-primary-strong: #1e40af;
+  --color-primary-container: #dbeafe;
+  --color-on-primary-container: #1e40af;
+
+  --color-secondary: #047857;
+  --color-secondary-container: #d1fae5;
+  --color-on-secondary-container: #065f46;
+
+  --color-tertiary: #b45309;
+  --color-tertiary-container: #fef3c7;
+  --color-on-tertiary-container: #78350f;
+
+  --color-error: #b91c1c;
+  --color-error-container: #fee2e2;
+  --color-on-error-container: #991b1b;
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --radius-sm: 0.125rem;
+  --radius: 0.25rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-on-surface);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  /* Numeric columns line up only when the figures are tabular. */
+  .tnum {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 9999px;
+    border: 2px solid #ffffff;
+  }
+  ::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+}
+
+@layer components {
+  .label {
+    font-size: 10px;
+    line-height: 1.2;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-on-surface-variant);
+    font-weight: 500;
+  }
+
+  .panel {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-outline-variant);
+    border-radius: var(--radius-lg);
+  }
+
+  .data-row {
+    border-bottom: 1px solid var(--color-outline-variant);
+  }
+  .data-row:last-child {
+    border-bottom: 0;
+  }
+}
+
+/* Recharts renders SVG text; keep it on the design's type stack. */
+.recharts-text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--color-on-surface-variant);
+}
